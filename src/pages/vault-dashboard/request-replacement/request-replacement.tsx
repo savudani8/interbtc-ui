@@ -1,56 +1,59 @@
-import { useState } from 'react';
+
+import * as React from 'react';
 import { Modal } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
-import Big from 'big.js';
-import { btcToSat } from '@interlay/interbtc';
-import { BTCAmount } from '@interlay/monetary-js';
+import { useSelector } from 'react-redux';
+import { useQueryClient } from 'react-query';
+import { BitcoinAmount } from '@interlay/monetary-js';
 
 import InterlayCinnabarOutlinedButton from 'components/buttons/InterlayCinnabarOutlinedButton';
 import InterlayMulberryOutlinedButton from 'components/buttons/InterlayMulberryOutlinedButton';
-import { addReplaceRequestsAction } from 'common/actions/vault.actions';
-import { StoreType } from 'common/types/util.types';
-import { parachainToUIReplaceRequests } from 'common/utils/requests';
 import { ACCOUNT_ID_TYPE_NAME } from 'config/general';
+import { GENERIC_FETCHER } from 'services/fetchers/generic-fetcher';
+import { displayMonetaryAmount } from 'common/utils/utils';
+import { StoreType } from 'common/types/util.types';
 
 type RequestReplacementForm = {
   amount: number;
 };
 
-type RequestReplacementProps = {
+interface Props {
   onClose: () => void;
   show: boolean;
-};
+}
 
-export default function RequestReplacementModal(props: RequestReplacementProps): JSX.Element {
+const RequestReplacementModal = (props: Props): JSX.Element => {
   const { register, handleSubmit, errors } = useForm<RequestReplacementForm>();
-  const dispatch = useDispatch();
   const { address } = useSelector((state: StoreType) => state.general);
   const lockedDot = useSelector((state: StoreType) => state.vault.collateral);
   const lockedBtc = useSelector((state: StoreType) => state.vault.lockedBTC);
-  const [isRequestPending, setRequestPending] = useState(false);
+  const [isRequestPending, setRequestPending] = React.useState(false);
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   const onSubmit = handleSubmit(async ({ amount }) => {
     setRequestPending(true);
     try {
-      if (btcToSat(new Big(amount)) === undefined) {
+      if (BitcoinAmount.from.BTC(amount).to.Satoshi() === undefined) {
         throw new Error('Amount to convert is less than 1 satoshi.');
       }
-      const dustValue = await window.polkaBTC.redeem.getDustValue();
-      const amountPolkaBtc = BTCAmount.from.BTC(amount);
+      const dustValue = await window.bridge.interBtcApi.redeem.getDustValue();
+      const amountPolkaBtc = BitcoinAmount.from.BTC(amount);
       if (amountPolkaBtc.lte(dustValue)) {
-        throw new Error(`Please enter an amount greater than Bitcoin dust (${dustValue.toHuman()} BTC)`);
+        throw new Error(`Please enter an amount greater than Bitcoin dust (${displayMonetaryAmount(dustValue)} BTC)`);
       }
-      await window.polkaBTC.replace.request(amountPolkaBtc);
+      await window.bridge.interBtcApi.replace.request(amountPolkaBtc);
 
-      const vaultId = window.polkaBTC.api.createType(ACCOUNT_ID_TYPE_NAME, address);
-      const requests = await window.polkaBTC.vaults.mapReplaceRequests(vaultId);
-      if (!requests) return;
-
-      dispatch(addReplaceRequestsAction(parachainToUIReplaceRequests(requests)));
+      const vaultId = window.bridge.polkadotApi.createType(ACCOUNT_ID_TYPE_NAME, address);
+      queryClient.invalidateQueries([
+        GENERIC_FETCHER,
+        'interBtcApi',
+        'replace',
+        'mapReplaceRequests',
+        vaultId
+      ]);
       toast.success('Replacement request is submitted');
       props.onClose();
     } catch (error) {
@@ -71,9 +74,9 @@ export default function RequestReplacementModal(props: RequestReplacementProps):
           <div className='row'>
             <div className='col-12 text-center mb-4'>{t('vault.withdraw_your_collateral')}</div>
             <div className='col-12'>{t('vault.your_have')}</div>
-            <div className='col-12'> {lockedDot} DOT</div>
+            <div className='col-12'> {displayMonetaryAmount(lockedDot)} DOT</div>
             <div className='col-12 mb-4'>
-              {t('locked')} {lockedBtc} BTC
+              {t('locked')} {displayMonetaryAmount(lockedBtc)} BTC
             </div>
             <div className='col-12 mb-4'>{t('vault.replace_amount')}</div>
             <div className='col-12'>
@@ -95,7 +98,7 @@ export default function RequestReplacementModal(props: RequestReplacementProps):
                   </span>
                 </div>
                 {errors.amount && (
-                  <div className='input-error text-interlayConifer'>
+                  <div className='-mt-4 text-interlayConifer'>
                     {errors.amount.type === 'required' ?
                       'Amount is required' :
                       errors.amount.message}
@@ -118,4 +121,6 @@ export default function RequestReplacementModal(props: RequestReplacementProps):
       </form>
     </Modal>
   );
-}
+};
+
+export default RequestReplacementModal;

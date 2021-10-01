@@ -2,9 +2,9 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { Issue } from '@interlay/interbtc';
+import { Issue } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import InterlayLink from 'components/UI/InterlayLink';
 import { shortAddress } from 'common/utils/utils';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
@@ -34,8 +34,8 @@ const ReceivedIssueRequest = ({
         parachainHeight
       ] = await Promise.all([
         interbtcIndex.getBtcConfirmations(),
-        window.polkaBTC.btcRelay.getStableParachainConfirmations(),
-        window.polkaBTC.system.getCurrentBlockNumber()
+        window.bridge.interBtcApi.btcRelay.getStableParachainConfirmations(),
+        window.bridge.interBtcApi.system.getCurrentBlockNumber()
       ]);
       setStableBitcoinConfirmations(theStableBitcoinConfirmations);
       setStableParachainConfirmations(theStableParachainConfirmations);
@@ -72,7 +72,7 @@ const ReceivedIssueRequest = ({
             'text-interlayConifer',
             'font-medium'
           )}>
-          {`${request.confirmations}/${stableBitcoinConfirmations}`}
+          {`${request.confirmations ?? 0}/${stableBitcoinConfirmations}`}
         </span>
         <span
           className={clsx(

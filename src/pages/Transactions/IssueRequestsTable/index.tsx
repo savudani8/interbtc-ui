@@ -22,7 +22,7 @@ import clsx from 'clsx';
 import {
   Issue,
   IssueStatus
-} from '@interlay/interbtc';
+} from '@interlay/interbtc-api';
 
 import IssueRequestModal from './IssueRequestModal';
 import EllipsisLoader from 'components/EllipsisLoader';
@@ -41,10 +41,11 @@ import useQueryParams from 'utils/hooks/use-query-params';
 import useUpdateQueryParameters from 'utils/hooks/use-update-query-parameters';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
 import { QUERY_PARAMETERS } from 'utils/constants/links';
-import { REQUEST_TABLE_PAGE_LIMIT } from 'utils/constants/general';
+import { TABLE_PAGE_LIMIT } from 'utils/constants/general';
 import {
   formatDateTimePrecise,
-  shortTxId
+  shortTxId,
+  displayMonetaryAmount
 } from 'common/utils/utils';
 import userIssueRequestsFetcher, { USER_ISSUE_REQUESTS_FETCHER } from 'services/user-issue-requests-fetcher';
 import userIssueRequestsTotalCountFetcher, {
@@ -66,11 +67,12 @@ const IssueRequestsTable = (): JSX.Element => {
   const {
     address,
     extensions,
-    polkaBtcLoaded
+    bridgeLoaded
   } = useSelector((state: StoreType) => state.general);
   // eslint-disable-next-line max-len
   // TODO: should be refactored via `https://www.notion.so/interlay/Include-total-count-into-paginated-API-calls-in-index-894b56f288d24aaf8fb1aec36eadf41d`
   const {
+    isIdle: issueRequestsTotalCountIdle,
     isLoading: issueRequestsTotalCountLoading,
     data: issueRequestsTotalCount,
     error: issueRequestsTotalCountError
@@ -81,12 +83,13 @@ const IssueRequestsTable = (): JSX.Element => {
     ],
     userIssueRequestsTotalCountFetcher,
     {
-      enabled: !!address && !!polkaBtcLoaded,
+      enabled: !!address && !!bridgeLoaded,
       refetchInterval: 10000
     }
   );
   useErrorHandler(issueRequestsTotalCountError);
   const {
+    isIdle: issueRequestsIdle,
     isLoading: issueRequestsLoading,
     data: issueRequests,
     error: issueRequestsError
@@ -95,11 +98,11 @@ const IssueRequestsTable = (): JSX.Element => {
       USER_ISSUE_REQUESTS_FETCHER,
       address,
       selectedPageIndex,
-      REQUEST_TABLE_PAGE_LIMIT
+      TABLE_PAGE_LIMIT
     ],
     userIssueRequestsFetcher,
     {
-      enabled: !!address && !!polkaBtcLoaded,
+      enabled: !!address && !!bridgeLoaded,
       refetchInterval: 10000
     }
   );
@@ -113,7 +116,7 @@ const IssueRequestsTable = (): JSX.Element => {
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: { value: number }) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {value ? formatDateTimePrecise(new Date(Number(value))) : t('pending')}
@@ -123,16 +126,20 @@ const IssueRequestsTable = (): JSX.Element => {
       },
       {
         Header: `${t('issue_page.amount')} (interBTC)`,
-        accessor: 'amountInterBTC',
+        accessor: 'wrappedAmount',
         classNames: [
           'text-right'
         ],
         Cell: function FormattedCell(props: any) {
+          const issueRequest: Issue = props.row.original;
+          const issuedWrappedTokenAmount =
+            (issueRequest.executedAmountBTC && !issueRequest.executedAmountBTC.isZero()) ?
+              issueRequest.executedAmountBTC :
+              issueRequest.wrappedAmount;
           return (
             <>
-              {(props.row.original.executedAmountBTC && props.row.original.executedAmountBTC !== '0') ?
-                props.row.original.executedAmountBTC :
-                props.row.original.amountInterBTC
+              {
+                displayMonetaryAmount(issuedWrappedTokenAmount.sub(issueRequest.bridgeFee))
               }
             </>
           );
@@ -185,7 +192,7 @@ const IssueRequestsTable = (): JSX.Element => {
         classNames: [
           'text-right'
         ],
-        Cell: function FormattedCell({ value }: {value: number}) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {value === undefined ?
@@ -201,7 +208,7 @@ const IssueRequestsTable = (): JSX.Element => {
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: IssueStatus}) {
+        Cell: function FormattedCell({ value }: { value: IssueStatus; }) {
           let icon;
           let notice;
           let colorClassName;
@@ -264,7 +271,12 @@ const IssueRequestsTable = (): JSX.Element => {
     }
   );
 
-  if (issueRequestsLoading || issueRequestsTotalCountLoading) {
+  if (
+    issueRequestsIdle ||
+    issueRequestsLoading ||
+    issueRequestsTotalCountIdle ||
+    issueRequestsTotalCountLoading
+  ) {
     return (
       <div
         className={clsx(
@@ -298,7 +310,7 @@ const IssueRequestsTable = (): JSX.Element => {
     }
   };
 
-  const pageCount = Math.ceil(issueRequestsTotalCount / REQUEST_TABLE_PAGE_LIMIT);
+  const pageCount = Math.ceil(issueRequestsTotalCount / TABLE_PAGE_LIMIT);
   const selectedIssueRequest = data.find(issueRequest => issueRequest.id === selectedIssueRequestId);
 
   return (
@@ -309,18 +321,13 @@ const IssueRequestsTable = (): JSX.Element => {
           'container',
           'mx-auto'
         )}>
-        <div>
-          <h2
-            className={clsx(
-              'text-2xl',
-              'font-medium'
-            )}>
-            {t('issue_page.issue_requests')}
-          </h2>
-          <p>
-            {t('issue_page.click_on_issue_request')}
-          </p>
-        </div>
+        <h2
+          className={clsx(
+            'text-2xl',
+            'font-medium'
+          )}>
+          {t('issue_page.issue_requests')}
+        </h2>
         <InterlayTable {...getTableProps()}>
           <InterlayThead>
             {headerGroups.map(headerGroup => (

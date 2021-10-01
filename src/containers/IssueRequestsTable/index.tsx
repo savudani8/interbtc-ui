@@ -13,7 +13,7 @@ import { BitcoinNetwork } from '@interlay/interbtc-index-client';
 import {
   Issue,
   IssueStatus
-} from '@interlay/interbtc';
+} from '@interlay/interbtc-api';
 
 import EllipsisLoader from 'components/EllipsisLoader';
 import ErrorFallback from 'components/ErrorFallback';
@@ -30,16 +30,16 @@ import StatusCell from 'components/UI/InterlayTable/StatusCell';
 import InterlayLink from 'components/UI/InterlayLink';
 import useQueryParams from 'utils/hooks/use-query-params';
 import useUpdateQueryParameters from 'utils/hooks/use-update-query-parameters';
-import useInterbtcIndex from 'common/hooks/use-interbtc-index';
 import {
   shortAddress,
   formatDateTimePrecise
 } from 'common/utils/utils';
 import { QUERY_PARAMETERS } from 'utils/constants/links';
-import { REQUEST_TABLE_PAGE_LIMIT } from 'utils/constants/general';
+import { TABLE_PAGE_LIMIT } from 'utils/constants/general';
 import { BTC_ADDRESS_API } from 'config/bitcoin';
 import * as constants from '../../constants';
 import STATUSES from 'utils/constants/statuses';
+import { WrappedTokenAmount } from 'config/relay-chains';
 
 interface Props {
   totalIssueRequests: number;
@@ -51,14 +51,12 @@ const IssueRequestsTable = ({
   const queryParams = useQueryParams();
   const selectedPage = Number(queryParams.get(QUERY_PARAMETERS.PAGE)) || 1;
   const updateQueryParameters = useUpdateQueryParameters();
-  const statsApi = useInterbtcIndex();
   const [data, setData] = React.useState<Issue[]>([]);
   const [status, setStatus] = React.useState(STATUSES.IDLE);
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
   React.useEffect(() => {
-    if (!statsApi) return;
     if (!selectedPage) return;
     if (!handleError) return;
 
@@ -67,9 +65,9 @@ const IssueRequestsTable = ({
     try {
       (async () => {
         setStatus(STATUSES.PENDING);
-        const response = await statsApi.getIssues({
+        const response = await window.bridge.interBtcIndex.getIssues({
           page: selectedPageIndex,
-          perPage: REQUEST_TABLE_PAGE_LIMIT,
+          perPage: TABLE_PAGE_LIMIT,
           network: constants.BITCOIN_NETWORK as BitcoinNetwork
         });
         setStatus(STATUSES.RESOLVED);
@@ -80,7 +78,6 @@ const IssueRequestsTable = ({
       handleError(error);
     }
   }, [
-    statsApi,
     selectedPage,
     handleError
   ]);
@@ -93,7 +90,7 @@ const IssueRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: number}) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {formatDateTimePrecise(new Date(Number(value)))}
@@ -103,10 +100,19 @@ const IssueRequestsTable = ({
       },
       {
         Header: t('issue_page.amount'),
-        accessor: 'amountInterBTC',
+        accessor: 'wrappedAmount',
         classNames: [
           'text-right'
-        ]
+        ],
+        Cell: function FormattedCell({ value }: {
+          value: WrappedTokenAmount;
+        }) {
+          return (
+            <>
+              {value.toHuman()}
+            </>
+          );
+        }
       },
       {
         Header: t('issue_page.parachain_block'),
@@ -117,11 +123,11 @@ const IssueRequestsTable = ({
       },
       {
         Header: t('issue_page.vault_dot_address'),
-        accessor: 'vaultDOTAddress',
+        accessor: 'vaultParachainAddress',
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: string}) {
+        Cell: function FormattedCell({ value }: { value: string; }) {
           return (
             <>
               {shortAddress(value)}
@@ -135,13 +141,13 @@ const IssueRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: string}) {
+        Cell: function FormattedCell({ value }: { value: string; }) {
           return (
             <InterlayLink
               className={clsx(
                 'text-interlayDenim',
                 'space-x-1.5',
-                'flex',
+                'inline-flex',
                 'items-center'
               )}
               href={`${BTC_ADDRESS_API}${value}`}
@@ -159,7 +165,7 @@ const IssueRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: IssueStatus}) {
+        Cell: function FormattedCell({ value }: { value: IssueStatus; }) {
           return (
             <StatusCell
               status={{
@@ -195,14 +201,14 @@ const IssueRequestsTable = ({
   };
 
   const selectedPageIndex = selectedPage - 1;
-  const pageCount = Math.ceil(totalIssueRequests / REQUEST_TABLE_PAGE_LIMIT);
+  const pageCount = Math.ceil(totalIssueRequests / TABLE_PAGE_LIMIT);
 
   return (
     <InterlayTableContainer className='space-y-6'>
       <h2
         className={clsx(
           'text-2xl',
-          'font-bold'
+          'font-medium'
         )}>
         {t('issue_page.recent_requests')}
       </h2>

@@ -1,10 +1,11 @@
+
 import * as React from 'react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Redeem } from '@interlay/interbtc';
+import { Redeem } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import { shortAddress } from 'common/utils/utils';
 import { StoreType } from 'common/types/util.types';
 
@@ -16,16 +17,17 @@ const DefaultRedeemRequest = ({
   request
 }: Props): JSX.Element => {
   const { t } = useTranslation();
-  const { polkaBtcLoaded } = useSelector((state: StoreType) => state.general);
+  const { bridgeLoaded } = useSelector((state: StoreType) => state.general);
   const [stableBitcoinConfirmations, setStableBitcoinConfirmations] = React.useState(1);
 
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
 
     // TODO: should add loading UX
     (async () => {
       try {
-        const theStableBitcoinConfirmations = await window.polkaBTC.btcRelay.getStableBitcoinConfirmations();
+        const theStableBitcoinConfirmations =
+          await window.bridge.interBtcApi.btcRelay.getStableBitcoinConfirmations();
 
         setStableBitcoinConfirmations(theStableBitcoinConfirmations);
       } catch (error) {
@@ -33,7 +35,7 @@ const DefaultRedeemRequest = ({
         console.log('[RedeemRequestStatusUI useEffect] error.message => ', error.message);
       }
     })();
-  }, [polkaBtcLoaded]);
+  }, [bridgeLoaded]);
 
   return (
     <RequestWrapper>

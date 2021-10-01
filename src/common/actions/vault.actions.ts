@@ -1,47 +1,36 @@
 import {
-  BTCAmount,
-  PolkadotAmount
+  BitcoinAmount,
+  MonetaryAmount,
+  Currency
 } from '@interlay/monetary-js';
+import { CollateralUnit } from '@interlay/interbtc-api';
 
-import { VaultReplaceRequest } from '../types/vault.types';
 import {
-  AddReplaceRequests,
   UpdateCollateralization,
   UpdateCollateral,
   UpdateLockedBTC,
-  UpdateSLA,
   UpdateAPY,
-  ADD_REPLACE_REQUESTS,
   UPDATE_COLLATERALIZATION,
   UPDATE_COLLATERAL,
   UPDATE_LOCKED_BTC,
-  UPDATE_SLA,
   UPDATE_APY
 } from '../types/actions.types';
-
-export const addReplaceRequestsAction = (requests: VaultReplaceRequest[]): AddReplaceRequests => ({
-  type: ADD_REPLACE_REQUESTS,
-  requests
-});
 
 export const updateCollateralizationAction = (collateralization: string | undefined): UpdateCollateralization => ({
   type: UPDATE_COLLATERALIZATION,
   collateralization
 });
 
-export const updateCollateralAction = (collateral: PolkadotAmount): UpdateCollateral => ({
+export const updateCollateralAction = (
+  collateral: MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>
+): UpdateCollateral => ({
   type: UPDATE_COLLATERAL,
   collateral
 });
 
-export const updateLockedBTCAction = (lockedBTC: BTCAmount): UpdateLockedBTC => ({
+export const updateLockedBTCAction = (lockedBTC: BitcoinAmount): UpdateLockedBTC => ({
   type: UPDATE_LOCKED_BTC,
   lockedBTC
-});
-
-export const updateSLAAction = (sla: string): UpdateSLA => ({
-  type: UPDATE_SLA,
-  sla
 });
 
 export const updateAPYAction = (apy: string): UpdateAPY => ({

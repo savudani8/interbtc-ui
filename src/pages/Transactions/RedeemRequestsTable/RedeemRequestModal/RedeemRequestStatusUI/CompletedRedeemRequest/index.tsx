@@ -2,12 +2,16 @@
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { Redeem } from '@interlay/interbtc';
+import { Redeem } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import InterlayLink from 'components/UI/InterlayLink';
-import { shortAddress } from 'common/utils/utils';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
+import {
+  shortAddress,
+  displayMonetaryAmount,
+  getPolkadotLink
+} from 'common/utils/utils';
 
 interface Props {
   request: Redeem;
@@ -36,7 +40,7 @@ const CompletedRedeemRequest = ({
         )}>
         <span>{t('issue_page.you_received')}</span>
         <span className='text-interlayCinnabar'>
-          {`${request.amountBTC} BTC`}
+          {`${displayMonetaryAmount(request.amountBTC)} BTC`}
         </span>
         .
       </p>
@@ -73,7 +77,7 @@ const CompletedRedeemRequest = ({
           'items-center',
           'text-sm'
         )}
-        href='https://polkadot.js.org/apps/#/explorer'
+        href={getPolkadotLink(request.creationBlock)}
         target='_blank'
         rel='noopener noreferrer'>
         <span>{t('issue_page.view_parachain_block')}</span>

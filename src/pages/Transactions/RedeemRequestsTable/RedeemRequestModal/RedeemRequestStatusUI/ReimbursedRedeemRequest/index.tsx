@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { useSelector } from 'react-redux';
 import Big from 'big.js';
@@ -6,17 +7,21 @@ import clsx from 'clsx';
 import {
   FaExternalLinkAlt
 } from 'react-icons/fa';
+import { BitcoinAmount } from '@interlay/monetary-js';
 import {
-  BTCAmount,
-  Polkadot,
-  PolkadotAmount
-} from '@interlay/monetary-js';
-import { Redeem } from '@interlay/interbtc';
+  Redeem,
+  newMonetaryAmount
+} from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
-import PriceInfo from 'pages/Home/PriceInfo';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
+import PriceInfo from 'pages/Bridge/PriceInfo';
 import InterlayLink from 'components/UI/InterlayLink';
-import { getUsdAmount } from 'common/utils/utils';
+import { COLLATERAL_TOKEN } from 'config/relay-chains';
+import {
+  getUsdAmount,
+  displayMonetaryAmount,
+  getPolkadotLink
+} from 'common/utils/utils';
 import { StoreType } from 'common/types/util.types';
 import { ReactComponent as PolkadotLogoIcon } from 'assets/img/polkadot-logo.svg';
 
@@ -29,16 +34,22 @@ const ReimbursedRedeemRequest = ({
 }: Props): JSX.Element => {
   const { t } = useTranslation();
   const {
-    polkaBtcLoaded,
+    bridgeLoaded,
     prices
   } = useSelector((state: StoreType) => state.general);
-  const [burnedBTCAmount, setBurnedBTCAmount] = React.useState(BTCAmount.zero);
-  const [punishmentDOTAmount, setPunishmentDOTAmount] = React.useState(PolkadotAmount.zero);
-  const [burnDOTAmount, setBurnDOTAmount] = React.useState(PolkadotAmount.zero);
-  const [dotAmount, setDOTAmount] = React.useState(PolkadotAmount.zero);
+  const [burnedBTCAmount, setBurnedBTCAmount] = React.useState(BitcoinAmount.zero);
+  const [
+    punishmentCollateralTokenAmount,
+    setPunishmentCollateralTokenAmount
+  ] = React.useState(newMonetaryAmount(0, COLLATERAL_TOKEN));
+  const [
+    burnCollateralTokenAmount,
+    setBurnCollateralTokenAmount
+  ] = React.useState(newMonetaryAmount(0, COLLATERAL_TOKEN));
+  const [collateralTokenAmount, setCollateralTokenAmount] = React.useState(newMonetaryAmount(0, COLLATERAL_TOKEN));
 
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
     if (!request) return;
 
     // TODO: should add loading UX
@@ -48,21 +59,21 @@ const ReimbursedRedeemRequest = ({
           punishmentFee,
           btcDotRate
         ] = await Promise.all([
-          window.polkaBTC.vaults.getPunishmentFee(),
-          window.polkaBTC.oracle.getExchangeRate(Polkadot)
+          window.bridge.interBtcApi.vaults.getPunishmentFee(),
+          window.bridge.interBtcApi.oracle.getExchangeRate(COLLATERAL_TOKEN)
         ]);
 
         const burnedBTCAmount = request ?
-          BTCAmount.from.BTC(new Big(request.amountBTC).add(request.bridgeFee)) :
-          BTCAmount.zero;
+          request.amountBTC.add(request.bridgeFee) :
+          BitcoinAmount.zero;
         const theBurnDOTAmount = btcDotRate.toCounter(burnedBTCAmount);
         const thePunishmentDOTAmount = theBurnDOTAmount.mul(new Big(punishmentFee));
         const theDOTAmount = theBurnDOTAmount.add(thePunishmentDOTAmount);
         setBurnedBTCAmount(burnedBTCAmount);
-        setPunishmentDOTAmount(thePunishmentDOTAmount);
-        setBurnDOTAmount(theBurnDOTAmount);
-        setPunishmentDOTAmount(thePunishmentDOTAmount);
-        setDOTAmount(theDOTAmount);
+        setPunishmentCollateralTokenAmount(thePunishmentDOTAmount);
+        setBurnCollateralTokenAmount(theBurnDOTAmount);
+        setPunishmentCollateralTokenAmount(thePunishmentDOTAmount);
+        setCollateralTokenAmount(theDOTAmount);
       } catch (error) {
         // TODO: should add error handling UX
         console.log('[ReimbursedRedeemRequest useEffect] error.message => ', error.message);
@@ -70,7 +81,7 @@ const ReimbursedRedeemRequest = ({
     })();
   }, [
     request,
-    polkaBtcLoaded
+    bridgeLoaded
   ]);
 
   return (
@@ -88,7 +99,7 @@ const ReimbursedRedeemRequest = ({
       </p>
       <p className='font-medium'>
         <span className='text-interlayCinnabar'>
-          {`${burnedBTCAmount.toHuman()} interBTC`}
+          {`${displayMonetaryAmount(burnedBTCAmount)} interBTC`}
         </span>
         <span>
           &nbsp;{`(≈ $${getUsdAmount(burnedBTCAmount, prices.bitcoin.usd)})`}
@@ -101,10 +112,10 @@ const ReimbursedRedeemRequest = ({
       <p className='font-medium'>
         <span className='text-interlayDenim'>{t('redeem_page.recover_receive_dot')}</span>
         <span className='text-interlayDenim'>
-          &nbsp;{`${dotAmount.toHuman()} DOT`}
+          &nbsp;{`${displayMonetaryAmount(collateralTokenAmount)} DOT`}
         </span>
         <span>
-          &nbsp;{`(≈ $${getUsdAmount(dotAmount, prices.polkadot.usd)})`}
+          &nbsp;{`(≈ $${getUsdAmount(collateralTokenAmount, prices.collateralToken.usd)})`}
         </span>
         <span className='text-interlayDenim'>
           &nbsp;{t('redeem_page.recover_receive_total')}
@@ -124,9 +135,9 @@ const ReimbursedRedeemRequest = ({
               width={20}
               height={20} />
           }
-          value={burnDOTAmount.toHuman()}
+          value={displayMonetaryAmount(burnCollateralTokenAmount)}
           unitName='DOT'
-          approxUSD={getUsdAmount(burnDOTAmount, prices.polkadot.usd)} />
+          approxUSD={getUsdAmount(burnCollateralTokenAmount, prices.collateralToken.usd)} />
         <PriceInfo
           className='w-full'
           title={
@@ -139,9 +150,9 @@ const ReimbursedRedeemRequest = ({
               width={20}
               height={20} />
           }
-          value={punishmentDOTAmount.toHuman()}
+          value={displayMonetaryAmount(punishmentCollateralTokenAmount)}
           unitName='DOT'
-          approxUSD={getUsdAmount(punishmentDOTAmount, prices.polkadot.usd)} />
+          approxUSD={getUsdAmount(punishmentCollateralTokenAmount, prices.collateralToken.usd)} />
         <hr
           className={clsx(
             'border-t-2',
@@ -160,9 +171,9 @@ const ReimbursedRedeemRequest = ({
               width={20}
               height={20} />
           }
-          value={dotAmount.toHuman()}
+          value={displayMonetaryAmount(collateralTokenAmount)}
           unitName='DOT'
-          approxUSD={getUsdAmount(dotAmount, prices.polkadot.usd)} />
+          approxUSD={getUsdAmount(collateralTokenAmount, prices.collateralToken.usd)} />
       </div>
       <InterlayLink
         className={clsx(
@@ -172,7 +183,7 @@ const ReimbursedRedeemRequest = ({
           'items-center',
           'text-sm'
         )}
-        href='https://polkadot.js.org/apps/#/explorer'
+        href={getPolkadotLink(request.creationBlock)}
         target='_blank'
         rel='noopener noreferrer'>
         <span>{t('issue_page.view_parachain_block')}</span>

@@ -2,14 +2,12 @@ import * as React from 'react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode.react';
-import Big from 'big.js';
 import clsx from 'clsx';
 import { FaExclamationCircle } from 'react-icons/fa';
-import { BTCAmount } from '@interlay/monetary-js';
-import { Issue } from '@interlay/interbtc';
+import { Issue } from '@interlay/interbtc-api';
 
-import Tooltip from 'components/Tooltip';
 import Timer from 'components/Timer';
+import InterlayTooltip from 'components/UI/InterlayTooltip';
 import { StoreType } from 'common/types/util.types';
 import {
   copyToClipboard,
@@ -27,7 +25,7 @@ const BTCPaymentPendingStatusUI = ({
   const { t } = useTranslation();
   const { prices } = useSelector((state: StoreType) => state.general);
   const { issuePeriod } = useSelector((state: StoreType) => state.issue);
-  const amountBTCToSend = BTCAmount.from.BTC(new Big(request.amountInterBTC).add(request.bridgeFee).toString());
+  const amountBTCToSend = request.wrappedAmount.add(request.bridgeFee);
   const [initialLeftSeconds, setInitialLeftSeconds] = React.useState<number>();
 
   React.useEffect(() => {
@@ -43,9 +41,7 @@ const BTCPaymentPendingStatusUI = ({
   ]);
 
   return (
-    <div
-      id='BTCPaymentPendingStatusUI'
-      className='space-y-8'>
+    <div className='space-y-8'>
       <div
         className={clsx(
           'flex',
@@ -56,7 +52,7 @@ const BTCPaymentPendingStatusUI = ({
         <div
           className='text-xl'>
           {t('send')}
-          <span className='text-interlayCalifornia'>&nbsp;{amountBTCToSend.toHuman()}&nbsp;</span>
+          <span className='text-interlayCalifornia'>&nbsp;{displayMonetaryAmount(amountBTCToSend)}&nbsp;</span>
           BTC
         </div>
         <span
@@ -75,8 +71,8 @@ const BTCPaymentPendingStatusUI = ({
           )}>
           {t('issue_page.single_transaction')}
         </p>
-        {/* TODO: should improve the UX */}
-        <Tooltip overlay={t('click_to_copy')}>
+        {/* TODO: should improve UX */}
+        <InterlayTooltip label={t('click_to_copy')}>
           <span
             className={clsx(
               'block',
@@ -90,7 +86,7 @@ const BTCPaymentPendingStatusUI = ({
             onClick={() => copyToClipboard(request.vaultBTCAddress)}>
             {request.vaultBTCAddress}
           </span>
-        </Tooltip>
+        </InterlayTooltip>
         {initialLeftSeconds && (
           <p
             className={clsx(
@@ -124,7 +120,7 @@ const BTCPaymentPendingStatusUI = ({
       </p>
       <QRCode
         className='mx-auto'
-        value={`bitcoin:${request.vaultBTCAddress}?amount=${amountBTCToSend.toHuman()}`} />
+        value={`bitcoin:${request.vaultBTCAddress}?amount=${displayMonetaryAmount(amountBTCToSend)}`} />
       <div
         className={clsx(
           'text-textSecondary'

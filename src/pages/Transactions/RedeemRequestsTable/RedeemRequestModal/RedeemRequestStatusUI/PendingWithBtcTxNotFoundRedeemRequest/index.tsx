@@ -1,10 +1,11 @@
+
 import * as React from 'react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Redeem } from '@interlay/interbtc';
+import { Redeem } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import Timer from 'components/Timer';
 import { BLOCK_TIME } from 'config/parachain';
 import { StoreType } from 'common/types/util.types';
@@ -17,18 +18,18 @@ const PendingWithBtcTxNotFoundRedeemRequest = ({
   request
 }: Props): JSX.Element => {
   const { t } = useTranslation();
-  const { polkaBtcLoaded } = useSelector((state: StoreType) => state.general);
+  const { bridgeLoaded } = useSelector((state: StoreType) => state.general);
 
   const [initialLeftSeconds, setInitialLeftSeconds] = React.useState<number>();
 
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
     if (!request) return;
 
     // TODO: should add loading UX
     (async () => {
       try {
-        const redeemPeriod = await window.polkaBTC.redeem.getRedeemPeriod();
+        const redeemPeriod = await window.bridge.interBtcApi.redeem.getRedeemPeriod();
         const requestTimestamp = Math.floor(new Date(Number(request.creationTimestamp)).getTime() / 1000);
         const theInitialLeftSeconds = requestTimestamp + (redeemPeriod * BLOCK_TIME) - Math.floor(Date.now() / 1000);
         setInitialLeftSeconds(theInitialLeftSeconds);
@@ -39,7 +40,7 @@ const PendingWithBtcTxNotFoundRedeemRequest = ({
     })();
   }, [
     request,
-    polkaBtcLoaded
+    bridgeLoaded
   ]);
 
   return (

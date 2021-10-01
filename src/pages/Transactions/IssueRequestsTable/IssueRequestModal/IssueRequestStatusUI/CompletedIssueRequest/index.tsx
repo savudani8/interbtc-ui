@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { Issue } from '@interlay/interbtc';
+import { Issue } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import InterlayLink from 'components/UI/InterlayLink';
-import { shortAddress } from 'common/utils/utils';
+import {
+  shortAddress,
+  displayMonetaryAmount,
+  getPolkadotLink
+} from 'common/utils/utils';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
 
 interface Props {
@@ -16,6 +20,9 @@ const CompletedIssueRequest = ({
   request
 }: Props): JSX.Element => {
   const { t } = useTranslation();
+
+  const issuedWrappedTokenAmount = request.executedAmountBTC ?? request.wrappedAmount;
+  const receivedWrappedTokenAmount = issuedWrappedTokenAmount.sub(request.bridgeFee);
 
   return (
     <RequestWrapper id='CompletedIssueRequest'>
@@ -34,7 +41,7 @@ const CompletedIssueRequest = ({
         )}>
         <span>{t('issue_page.you_received')}</span>
         <span className='text-interlayDenim'>
-          {request.executedAmountBTC || request.amountInterBTC} interBTC
+          {displayMonetaryAmount(receivedWrappedTokenAmount)} interBTC
         </span>
       </p>
       <div
@@ -70,7 +77,7 @@ const CompletedIssueRequest = ({
           'items-center',
           'text-sm'
         )}
-        href='https://polkadot.js.org/apps/#/explorer'
+        href={getPolkadotLink(request.creationBlock)}
         target='_blank'
         rel='noopener noreferrer'>
         <span>{t('issue_page.view_parachain_block')}</span>

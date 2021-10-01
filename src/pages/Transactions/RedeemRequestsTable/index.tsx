@@ -20,7 +20,7 @@ import clsx from 'clsx';
 import {
   Redeem,
   RedeemStatus
-} from '@interlay/interbtc';
+} from '@interlay/interbtc-api';
 
 import RedeemRequestModal from './RedeemRequestModal';
 import EllipsisLoader from 'components/EllipsisLoader';
@@ -39,10 +39,11 @@ import useQueryParams from 'utils/hooks/use-query-params';
 import useUpdateQueryParameters from 'utils/hooks/use-update-query-parameters';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
 import { QUERY_PARAMETERS } from 'utils/constants/links';
-import { REQUEST_TABLE_PAGE_LIMIT } from 'utils/constants/general';
+import { TABLE_PAGE_LIMIT } from 'utils/constants/general';
 import {
   shortTxId,
-  formatDateTimePrecise
+  formatDateTimePrecise,
+  displayMonetaryAmount
 } from 'common/utils/utils';
 import userRedeemRequestsFetcher, { USER_REDEEM_REQUESTS_FETCHER } from 'services/user-redeem-requests-fetcher';
 import userRedeemRequestsTotalCountFetcher, {
@@ -61,9 +62,10 @@ const RedeemRequestsTable = (): JSX.Element => {
 
   const {
     address,
-    polkaBtcLoaded
+    bridgeLoaded
   } = useSelector((state: StoreType) => state.general);
   const {
+    isIdle: redeemRequestsTotalCountIdle,
     isLoading: redeemRequestsTotalCountLoading,
     data: redeemRequestsTotalCount,
     error: redeemRequestsTotalCountError
@@ -74,12 +76,13 @@ const RedeemRequestsTable = (): JSX.Element => {
     ],
     userRedeemRequestsTotalCountFetcher,
     {
-      enabled: !!address && !!polkaBtcLoaded,
+      enabled: !!address && !!bridgeLoaded,
       refetchInterval: 10000
     }
   );
   useErrorHandler(redeemRequestsTotalCountError);
   const {
+    isIdle: redeemRequestsIdle,
     isLoading: redeemRequestsLoading,
     data: redeemRequests,
     error: redeemRequestsError
@@ -88,11 +91,11 @@ const RedeemRequestsTable = (): JSX.Element => {
       USER_REDEEM_REQUESTS_FETCHER,
       address,
       selectedPageIndex,
-      REQUEST_TABLE_PAGE_LIMIT
+      TABLE_PAGE_LIMIT
     ],
     userRedeemRequestsFetcher,
     {
-      enabled: !!address && !!polkaBtcLoaded,
+      enabled: !!address && !!bridgeLoaded,
       refetchInterval: 10000
     }
   );
@@ -106,7 +109,7 @@ const RedeemRequestsTable = (): JSX.Element => {
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: number}) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {value ? formatDateTimePrecise(new Date(Number(value))) : t('pending')}
@@ -119,7 +122,16 @@ const RedeemRequestsTable = (): JSX.Element => {
         accessor: 'amountBTC',
         classNames: [
           'text-right'
-        ]
+        ],
+        Cell: function FormattedCell(props: any) {
+          const redeemRequest: Redeem = props.row.original;
+          const redeemedWrappedTokenAmount =
+            redeemRequest.amountBTC.add(redeemRequest.bridgeFee).add(redeemRequest.btcTransferFee);
+
+          return (
+            <>{displayMonetaryAmount(redeemedWrappedTokenAmount)}</>
+          );
+        }
       },
       {
         Header: t('issue_page.btc_transaction'),
@@ -173,7 +185,7 @@ const RedeemRequestsTable = (): JSX.Element => {
         classNames: [
           'text-right'
         ],
-        Cell: function FormattedCell({ value }: {value: number}) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {value === undefined ?
@@ -189,7 +201,7 @@ const RedeemRequestsTable = (): JSX.Element => {
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: RedeemStatus}) {
+        Cell: function FormattedCell({ value }: { value: RedeemStatus; }) {
           let icon;
           let notice;
           let colorClassName;
@@ -261,7 +273,12 @@ const RedeemRequestsTable = (): JSX.Element => {
     }
   );
 
-  if (redeemRequestsLoading || redeemRequestsTotalCountLoading) {
+  if (
+    redeemRequestsIdle ||
+    redeemRequestsLoading ||
+    redeemRequestsTotalCountIdle ||
+    redeemRequestsTotalCountLoading
+  ) {
     return (
       <div
         className={clsx(
@@ -291,7 +308,7 @@ const RedeemRequestsTable = (): JSX.Element => {
     });
   };
 
-  const pageCount = Math.ceil(redeemRequestsTotalCount / REQUEST_TABLE_PAGE_LIMIT);
+  const pageCount = Math.ceil(redeemRequestsTotalCount / TABLE_PAGE_LIMIT);
   const selectedRedeemRequest = data.find(redeemRequest => redeemRequest.id === selectedRedeemRequestId);
 
   return (

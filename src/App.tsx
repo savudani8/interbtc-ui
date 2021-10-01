@@ -1,7 +1,9 @@
+
 import * as React from 'react';
 import {
   Switch,
-  Route
+  Route,
+  Redirect
 } from 'react-router-dom';
 import {
   toast,
@@ -19,37 +21,30 @@ import {
   web3FromAddress
 } from '@polkadot/extension-dapp';
 import keyring from '@polkadot/ui-keyring';
+import { Keyring } from '@polkadot/api';
+import { createInterbtc } from '@interlay/interbtc';
 import {
   FaucetClient,
-  createInterbtcAPI,
-  InterBTCAPI
-} from '@interlay/interbtc';
-import { StatusCode } from '@interlay/interbtc/build/interfaces';
-import { Keyring } from '@polkadot/api';
+  CollateralUnit
+} from '@interlay/interbtc-api';
+import { StatusCode } from '@interlay/interbtc-api/build/src/interfaces';
 import {
-  Bitcoin,
-  BTCAmount,
-  Polkadot,
-  PolkadotAmount
+  MonetaryAmount,
+  Currency
 } from '@interlay/monetary-js';
 
 import Layout from 'parts/Layout';
-import Home from 'pages/Home';
-import Dashboard from 'pages/dashboard/dashboard.page';
-import VaultDashboard from 'pages/vault-dashboard/vault-dashboard.page';
-import VaultsDashboard from 'pages/dashboard/vaults/vaults.dashboard.page';
-import IssueRequests from 'pages/dashboard/IssueRequests';
-import RedeemRequests from 'pages/dashboard/RedeemRequests';
-import RelayDashboard from 'pages/dashboard/relay/relay.dashboard.page';
-import OraclesDashboard from 'pages/dashboard/oracles/oracles.dashboard.page';
-import ParachainDashboard from 'pages/dashboard/parachain/parachain.dashboard.page';
+import FullLoadingSpinner from 'components/FullLoadingSpinner';
 // TODO: block for now
 // import TransitionWrapper from 'parts/TransitionWrapper';
 import ErrorFallback from 'components/ErrorFallback';
+import { ACCOUNT_ID_TYPE_NAME } from 'config/general';
 import {
   APP_NAME,
-  ACCOUNT_ID_TYPE_NAME
-} from 'config/general';
+  WRAPPED_TOKEN,
+  COLLATERAL_TOKEN,
+  WrappedTokenAmount
+} from 'config/relay-chains';
 import { PAGES } from 'utils/constants/links';
 import './i18n';
 import * as constants from './constants';
@@ -66,67 +61,63 @@ import {
   setInstalledExtensionAction,
   isFaucetLoaded,
   isVaultClientLoaded,
-  updateBalancePolkaBTCAction,
-  updateBalanceDOTAction
+  updateWrappedTokenBalanceAction,
+  updateCollateralTokenBalanceAction
 } from 'common/actions/general.actions';
 // TODO: should clean up
 import './_general.scss';
 import 'react-toastify/dist/ReactToastify.css';
 
-// TODO: block code-splitting for now
-// const Home = React.lazy(() =>
-//   import(/* webpackChunkName: 'application' */ 'pages/Home')
-// );
-// const Dashboard = React.lazy(() =>
-//   import(/* webpackChunkName: 'dashboard' */ 'pages/dashboard/dashboard.page')
-// );
-// const VaultDashboardPage = React.lazy(() =>
-//   import(/* webpackChunkName: 'vault' */ 'pages/vault-dashboard/vault-dashboard.page')
-// );
-const Challenges = React.lazy(() =>
-  import(/* webpackChunkName: 'challenges' */ 'pages/Challenges')
+const Bridge = React.lazy(() =>
+  import(/* webpackChunkName: 'bridge' */ 'pages/Bridge')
 );
-// const VaultsDashboard = React.lazy(() =>
-//   import(/* webpackChunkName: 'vaults' */ 'pages/dashboard/vaults/vaults.dashboard.page')
-// );
-// const IssueRequests = React.lazy(() =>
-//   import(/* webpackChunkName: 'issue' */ 'pages/dashboard/IssueRequests')
-// );
-// const RedeemRequests = React.lazy(() =>
-//   import(/* webpackChunkName: 'redeem' */ 'pages/dashboard/RedeemRequests')
-// );
-// const RelayDashboard = React.lazy(() =>
-//   import(/* webpackChunkName: 'relay' */ 'pages/dashboard/relay/relay.dashboard.page')
-// );
-// const OraclesDashboard = React.lazy(() =>
-//   import(/* webpackChunkName: 'oracles' */ 'pages/dashboard/oracles/oracles.dashboard.page')
-// );
-// const ParachainDashboard = React.lazy(() =>
-//   import(/* webpackChunkName: 'parachain' */ 'pages/dashboard/parachain/parachain.dashboard.page')
-// );
+const Transactions = React.lazy(() =>
+  import(/* webpackChunkName: 'transactions' */ 'pages/Transactions')
+);
+const Staking = React.lazy(() =>
+  import(/* webpackChunkName: 'staking' */ 'pages/Staking')
+);
+const Dashboard = React.lazy(() =>
+  import(/* webpackChunkName: 'dashboard' */ 'pages/Dashboard')
+);
+// ray test touch <
+// TODO: nested routing
+const Vaults = React.lazy(() =>
+  import(/* webpackChunkName: 'vaults' */ 'pages/Dashboard/Vaults')
+);
+const IssueRequests = React.lazy(() =>
+  import(/* webpackChunkName: 'issue' */ 'pages/Dashboard/IssueRequests')
+);
+const RedeemRequests = React.lazy(() =>
+  import(/* webpackChunkName: 'redeem' */ 'pages/Dashboard/RedeemRequests')
+);
+const BTCRelay = React.lazy(() =>
+  import(/* webpackChunkName: 'relay' */ 'pages/Dashboard/BTCRelay')
+);
+const Oracles = React.lazy(() =>
+  import(/* webpackChunkName: 'oracles' */ 'pages/Dashboard/Oracles')
+);
+const Parachain = React.lazy(() =>
+  import(/* webpackChunkName: 'parachain' */ 'pages/Dashboard/Parachain')
+);
+// ray test touch >
+const VaultDashboard = React.lazy(() =>
+  import(/* webpackChunkName: 'vault' */ 'pages/vault-dashboard/vault-dashboard.page')
+);
 const Feedback = React.lazy(() =>
   import(/* webpackChunkName: 'feedback' */ 'pages/Feedback')
-);
-const Requests = React.lazy(() =>
-  import(/* webpackChunkName: 'transactions' */ 'pages/Transactions')
 );
 const NoMatch = React.lazy(() =>
   import(/* webpackChunkName: 'no-match' */ 'pages/NoMatch')
 );
 
-function connectToParachain(): Promise<InterBTCAPI> {
-  return createInterbtcAPI(
-    constants.PARACHAIN_URL,
-    constants.BITCOIN_NETWORK
-  );
-}
-
-function App(): JSX.Element {
+const App = (): JSX.Element => {
   const {
-    polkaBtcLoaded,
+    bridgeLoaded,
     address,
-    balanceInterBTC,
-    balanceDOT
+    wrappedTokenBalance,
+    collateralTokenBalance,
+    vaultClientLoaded
   } = useSelector((state: StoreType) => state.general);
   const [isLoading, setIsLoading] = React.useState(true);
   const dispatch = useDispatch();
@@ -135,7 +126,12 @@ function App(): JSX.Element {
   // Load the main interBTC API - connection to the interBTC bridge
   const loadPolkaBTC = React.useCallback(async (): Promise<void> => {
     try {
-      window.polkaBTC = await connectToParachain();
+      window.bridge = await createInterbtc(
+        constants.PARACHAIN_URL,
+        constants.BITCOIN_NETWORK,
+        WRAPPED_TOKEN,
+        constants.STATS_URL
+      );
       dispatch(isPolkaBtcLoaded(true));
       setIsLoading(false);
     } catch (error) {
@@ -164,47 +160,46 @@ function App(): JSX.Element {
   }, [dispatch]);
 
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
     if (!address) return;
 
-    const id = window.polkaBTC.api.createType(ACCOUNT_ID_TYPE_NAME, address);
+    const id = window.bridge.polkadotApi.createType(ACCOUNT_ID_TYPE_NAME, address);
 
     // Maybe load the vault client - only if the current address is also registered as a vault
     (async () => {
       try {
         dispatch(isVaultClientLoaded(false));
-        const vault = await window.polkaBTC.vaults.get(id);
+        const vault = await window.bridge.interBtcApi.vaults.get(id);
         dispatch(isVaultClientLoaded(!!vault));
       } catch (error) {
         // TODO: should add error handling
-        console.log('No interBTC vault found for the account in the connected Polkadot wallet.');
-        console.log('[App React.useEffect] error.message => ', error.message);
+        console.log('[App React.useEffect 1] error => ', error);
       }
     })();
   }, [
-    polkaBtcLoaded,
+    bridgeLoaded,
     address,
     dispatch
   ]);
 
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
 
     // Initialize data on app bootstrap
     (async () => {
       try {
         const [
-          totalInterBTC,
-          totalLockedDOT,
+          totalWrappedTokenAmount,
+          totalLockedCollateralTokenAmount,
           btcRelayHeight,
           bitcoinHeight,
           state
         ] = await Promise.all([
-          window.polkaBTC.tokens.total(Bitcoin),
-          window.polkaBTC.tokens.total(Polkadot),
-          window.polkaBTC.btcRelay.getLatestBlockHeight(),
-          window.polkaBTC.electrsAPI.getLatestBlockHeight(),
-          window.polkaBTC.stakedRelayer.getCurrentStateOfBTCParachain()
+          window.bridge.interBtcApi.tokens.total(WRAPPED_TOKEN),
+          window.bridge.interBtcApi.tokens.total(COLLATERAL_TOKEN),
+          window.bridge.interBtcApi.btcRelay.getLatestBlockHeight(),
+          window.bridge.interBtcApi.electrsAPI.getLatestBlockHeight(),
+          window.bridge.interBtcApi.system.getStatusCode()
         ]);
 
         const parachainStatus = (state: StatusCode) => {
@@ -221,8 +216,8 @@ function App(): JSX.Element {
 
         dispatch(
           initGeneralDataAction(
-            totalInterBTC,
-            totalLockedDOT,
+            totalWrappedTokenAmount,
+            totalLockedCollateralTokenAmount,
             Number(btcRelayHeight),
             bitcoinHeight,
             parachainStatus(state)
@@ -230,23 +225,23 @@ function App(): JSX.Element {
         );
       } catch (error) {
         // TODO: should add error handling
-        console.log('[App React.useEffect] error.message => ', error.message);
+        console.log('[App React.useEffect 2] error.message => ', error.message);
       }
     })();
   }, [
     dispatch,
-    polkaBtcLoaded
+    bridgeLoaded
   ]);
 
   // Loads the address for the currently select account and maybe loads the vault and staked relayer dashboards
   React.useEffect(() => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
 
     const trySetDefaultAccount = () => {
       if (constants.DEFAULT_ACCOUNT_SEED) {
         const keyring = new Keyring({ type: 'sr25519' });
         const defaultAccountKeyring = keyring.addFromUri(constants.DEFAULT_ACCOUNT_SEED);
-        window.polkaBTC.setAccount(defaultAccountKeyring);
+        window.bridge.interBtcApi.setAccount(defaultAccountKeyring);
         dispatch(changeAddressAction(defaultAccountKeyring.address));
       }
     };
@@ -272,22 +267,22 @@ function App(): JSX.Element {
 
         const { signer } = await web3FromAddress(newAddress);
         // TODO: could store the active address just in one place (either in `window` object or in redux)
-        window.polkaBTC.setAccount(newAddress, signer);
+        window.bridge.interBtcApi.setAccount(newAddress, signer);
         dispatch(changeAddressAction(newAddress));
       } catch (error) {
         // TODO: should add error handling
-        console.log('[App React.useEffect] error.message => ', error.message);
+        console.log('[App React.useEffect 3] error.message => ', error.message);
       }
     })();
   }, [
     address,
-    polkaBtcLoaded,
+    bridgeLoaded,
     dispatch
   ]);
 
   // Loads the interBTC bridge and the faucet
   React.useEffect(() => {
-    if (polkaBtcLoaded) return;
+    if (bridgeLoaded) return;
 
     (async () => {
       try {
@@ -307,14 +302,14 @@ function App(): JSX.Element {
     loadPolkaBTC,
     loadFaucet,
     isLoading,
-    polkaBtcLoaded,
+    bridgeLoaded,
     dispatch,
     store
   ]);
 
   React.useEffect(() => {
     if (!dispatch) return;
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
     if (!address) return;
 
     let unsubscribeFromCollateral: () => void;
@@ -322,26 +317,34 @@ function App(): JSX.Element {
     (async () => {
       try {
         unsubscribeFromCollateral =
-          await window.polkaBTC.tokens.subscribeToBalance(Polkadot, address, (_, balance: PolkadotAmount) => {
-            if (!balance.eq(balanceDOT)) {
-              dispatch(updateBalanceDOTAction(balance));
+          await window.bridge.interBtcApi.tokens.subscribeToBalance(
+            COLLATERAL_TOKEN,
+            address,
+            (_, balance: MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>) => {
+              if (!balance.eq(collateralTokenBalance)) {
+                dispatch(updateCollateralTokenBalanceAction(balance));
+              }
             }
-          });
+          );
       } catch (error) {
-        console.log('[App React.useEffect] error.message => ', error.message);
+        console.log('[App React.useEffect 4] error.message => ', error.message);
       }
     })();
 
     (async () => {
       try {
         unsubscribeFromWrapped =
-          await window.polkaBTC.tokens.subscribeToBalance(Bitcoin, address, (_, balance: BTCAmount) => {
-            if (!balance.eq(balanceInterBTC)) {
-              dispatch(updateBalancePolkaBTCAction(balance));
+          await window.bridge.interBtcApi.tokens.subscribeToBalance(
+            WRAPPED_TOKEN,
+            address,
+            (_, balance: WrappedTokenAmount) => {
+              if (!balance.eq(wrappedTokenBalance)) {
+                dispatch(updateWrappedTokenBalanceAction(balance));
+              }
             }
-          });
+          );
       } catch (error) {
-        console.log('[App React.useEffect] error.message => ', error.message);
+        console.log('[App React.useEffect 5] error.message => ', error.message);
       }
     })();
 
@@ -355,10 +358,10 @@ function App(): JSX.Element {
     };
   }, [
     dispatch,
-    polkaBtcLoaded,
+    bridgeLoaded,
     address,
-    balanceInterBTC,
-    balanceDOT
+    wrappedTokenBalance,
+    collateralTokenBalance
   ]);
 
   return (
@@ -372,20 +375,27 @@ function App(): JSX.Element {
           render={({ location }) => (
             // TODO: block for now
             // <TransitionWrapper location={location}>
-            // TODO: should use loading spinner instead of `Loading...`
-            <React.Suspense fallback={<div>Loading...</div>}>
+            <React.Suspense
+              fallback={
+                <FullLoadingSpinner />
+              }>
               <Switch location={location}>
-                <Route path={PAGES.DASHBOARD_VAULTS}>
-                  <VaultsDashboard />
+                <Route path={PAGES.FEEDBACK}>
+                  <Feedback />
                 </Route>
-                <Route path={PAGES.CHALLENGES}>
-                  <Challenges />
+                {vaultClientLoaded && (
+                  <Route path={PAGES.VAULT}>
+                    <VaultDashboard />
+                  </Route>
+                )}
+                <Route path={PAGES.DASHBOARD_VAULTS}>
+                  <Vaults />
                 </Route>
                 <Route path={PAGES.DASHBOARD_PARACHAIN}>
-                  <ParachainDashboard />
+                  <Parachain />
                 </Route>
                 <Route path={PAGES.DASHBOARD_ORACLES}>
-                  <OraclesDashboard />
+                  <Oracles />
                 </Route>
                 <Route path={PAGES.DASHBOARD_ISSUE_REQUESTS}>
                   <IssueRequests />
@@ -394,25 +404,24 @@ function App(): JSX.Element {
                   <RedeemRequests />
                 </Route>
                 <Route path={PAGES.DASHBOARD_RELAY}>
-                  <RelayDashboard />
+                  <BTCRelay />
                 </Route>
                 <Route path={PAGES.DASHBOARD}>
                   <Dashboard />
                 </Route>
-                <Route path={PAGES.VAULT}>
-                  <VaultDashboard />
-                </Route>
-                <Route path={PAGES.FEEDBACK}>
-                  <Feedback />
+                <Route path={PAGES.STAKING}>
+                  <Staking />
                 </Route>
                 <Route path={PAGES.TRANSACTIONS}>
-                  <Requests />
+                  <Transactions />
                 </Route>
-                <Route
-                  path={PAGES.HOME}
-                  exact>
-                  <Home />
+                <Route path={PAGES.BRIDGE}>
+                  <Bridge />
                 </Route>
+                <Redirect
+                  exact
+                  from={PAGES.HOME}
+                  to={PAGES.BRIDGE} />
                 <Route path='*'>
                   <NoMatch />
                 </Route>
@@ -423,7 +432,7 @@ function App(): JSX.Element {
       </Layout>
     </>
   );
-}
+};
 
 export default withErrorBoundary(App, {
   FallbackComponent: ErrorFallback,

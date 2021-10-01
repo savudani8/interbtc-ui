@@ -1,22 +1,18 @@
-
 import * as React from 'react';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import Big from 'big.js';
-import BN from 'bn.js';
 import {
   Issue,
-  IssueStatus,
-  satToBTC
-} from '@interlay/interbtc';
-import { BTCAmount } from '@interlay/monetary-js';
+  IssueStatus
+} from '@interlay/interbtc-api';
+import { BitcoinAmount } from '@interlay/monetary-js';
 
 import BTCPaymentPendingStatusUI from './BTCPaymentPendingStatusUI';
 import IssueRequestStatusUI from './IssueRequestStatusUI';
 import WhoopsStatusUI from './WhoopsStatusUI';
-import PriceInfo from 'pages/Home/PriceInfo';
-import IconButton from 'components/IconButton';
+import PriceInfo from 'pages/Bridge/PriceInfo';
+import IconButton from 'components/buttons/IconButton';
 import InterlayModal, {
   Props as ModalProps,
   InterlayModalInnerWrapper,
@@ -63,12 +59,11 @@ const IssueRequestModal = ({
 
   const focusRef = React.useRef(null);
 
-  const amountInterBTC = (request.executedAmountBTC && request.executedAmountBTC !== '0') ?
-    request.executedAmountBTC :
-    request.amountInterBTC;
-  const amountBTCSent = request.btcAmountSubmittedByUser ?
-    satToBTC(new BN(request.btcAmountSubmittedByUser)) :
-    new Big(request.amountInterBTC).add(request.bridgeFee);
+  const issuedWrappedTokenAmount =
+    (request.executedAmountBTC && !request.executedAmountBTC.isZero()) ?
+      request.executedAmountBTC :
+      request.wrappedAmount;
+  const receivedWrappedTokenAmount = issuedWrappedTokenAmount.sub(request.bridgeFee);
 
   return (
     <InterlayModal
@@ -134,7 +129,7 @@ const IssueRequestModal = ({
                   'space-x-1'
                 )}>
                 <span className='text-5xl'>
-                  {amountInterBTC}
+                  {displayMonetaryAmount(receivedWrappedTokenAmount)}
                 </span>
                 <span className='text-2xl'>
                   interBTC
@@ -146,7 +141,7 @@ const IssueRequestModal = ({
                   'block'
                 )}>
                 {`≈ $ ${getUsdAmount(
-                  BTCAmount.from.BTC(amountInterBTC) || BTCAmount.zero,
+                  issuedWrappedTokenAmount || BitcoinAmount.zero,
                   prices.bitcoin.usd
                 )}`}
               </span>
@@ -163,9 +158,9 @@ const IssueRequestModal = ({
                     width={23}
                     height={23} />
                 }
-                value={displayMonetaryAmount(BTCAmount.from.BTC(request.bridgeFee))}
+                value={displayMonetaryAmount(request.bridgeFee)}
                 unitName='BTC'
-                approxUSD={getUsdAmount(BTCAmount.from.BTC(request.bridgeFee), prices.bitcoin.usd)} />
+                approxUSD={getUsdAmount(request.bridgeFee, prices.bitcoin.usd)} />
               {/* TODO: could componentize */}
               <hr
                 className={clsx(
@@ -184,9 +179,9 @@ const IssueRequestModal = ({
                     width={23}
                     height={23} />
                 }
-                value={displayMonetaryAmount(BTCAmount.from.BTC(amountBTCSent))}
+                value={displayMonetaryAmount(issuedWrappedTokenAmount)}
                 unitName='BTC'
-                approxUSD={getUsdAmount(BTCAmount.from.BTC(amountBTCSent), prices.bitcoin.usd)} />
+                approxUSD={getUsdAmount(issuedWrappedTokenAmount, prices.bitcoin.usd)} />
             </div>
             <div className='space-y-4'>
               {/* TODO: could componentize */}
@@ -223,7 +218,7 @@ const IssueRequestModal = ({
                   {t('issue_page.vault_dot_address')}
                 </span>
                 <span className='font-medium'>
-                  {shortAddress(request.vaultDOTAddress)}
+                  {shortAddress(request.vaultParachainAddress)}
                 </span>
               </div>
               <div

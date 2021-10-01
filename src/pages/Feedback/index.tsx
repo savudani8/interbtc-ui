@@ -11,37 +11,37 @@ import PageTitle from 'parts/PageTitle';
 import CardList, { CardListItem } from 'components/CardList';
 import InterlayLink from 'components/UI/InterlayLink';
 import {
-  USER_FEEDBACK_FORM,
-  VAULT_FEEDBACK_FORM,
-  RELAYER_FEEDBACK_FORM,
-  POLKA_BTC_UI_GITHUB_ISSUES,
-  INTERLAY_DISCORD
+  USER_FEEDBACK_FORM_LINK,
+  VAULT_FEEDBACK_FORM_LINK,
+  RELAYER_FEEDBACK_FORM_LINK,
+  INTER_BTC_UI_GITHUB_ISSUES_LINK,
+  INTERLAY_DISCORD_LINK
 } from 'config/links';
 
 const FEEDBACK_ITEMS = [
   {
     title: 'User Feedback Form',
-    link: USER_FEEDBACK_FORM,
+    link: USER_FEEDBACK_FORM_LINK,
     icon: <FaExternalLinkAlt />
   },
   {
     title: 'Vault Feedback Form',
-    link: VAULT_FEEDBACK_FORM,
+    link: VAULT_FEEDBACK_FORM_LINK,
     icon: <FaExternalLinkAlt />
   },
   {
     title: 'Relayer Feedback Form',
-    link: RELAYER_FEEDBACK_FORM,
+    link: RELAYER_FEEDBACK_FORM_LINK,
     icon: <FaExternalLinkAlt />
   },
   {
     title: 'Open an Issue on Github',
-    link: POLKA_BTC_UI_GITHUB_ISSUES,
+    link: INTER_BTC_UI_GITHUB_ISSUES_LINK,
     icon: <FaGithub />
   },
   {
     title: 'Discuss on Discord',
-    link: INTERLAY_DISCORD,
+    link: INTERLAY_DISCORD_LINK,
     icon: <FaDiscord />
   }
 ];
@@ -51,8 +51,6 @@ const Feedback = (): JSX.Element => (
     <PageTitle mainTitle='Feedback' />
     <CardList
       className={clsx(
-        'max-w-max',
-        'm-auto',
         'md:grid-cols-3',
         '2xl:grid-cols-5',
         'gap-5'

@@ -1,14 +1,12 @@
 
+// ray test touch <
 import {
   BitcoinNetwork,
-  RedeemColumns,
-  IndexApi,
-  Configuration
+  RedeemColumns
 } from '@interlay/interbtc-index-client';
-import { Redeem } from '@interlay/interbtc';
+import { Redeem } from '@interlay/interbtc-api';
 
 import {
-  STATS_URL,
   BITCOIN_NETWORK
 } from '../constants';
 
@@ -35,9 +33,7 @@ const userRedeemRequestsFetcher = async ({ queryKey }: Arguments): Promise<Array
     throw new Error('Invalid key!');
   }
 
-  const index = new IndexApi(new Configuration({ basePath: STATS_URL }));
-
-  return await index.getFilteredRedeems({
+  return await window.bridge.interBtcIndex.getFilteredRedeems({
     page,
     perPage: limit,
     network: BITCOIN_NETWORK as BitcoinNetwork,
@@ -53,3 +49,4 @@ export {
 };
 
 export default userRedeemRequestsFetcher;
+// ray test touch >

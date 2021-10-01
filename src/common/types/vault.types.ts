@@ -1,35 +1,18 @@
 import {
-  BTCAmount,
-  PolkadotAmount
+  BitcoinAmount,
+  MonetaryAmount,
+  Currency
 } from '@interlay/monetary-js';
-
-export type Vault = {
-  vaultId: string;
-  btcAddress: string;
-  lockedDOT: string;
-  lockedBTC: string;
-  pendingBTC: string;
-  status: string;
-  unsettledCollateralization: string | undefined;
-  settledCollateralization: string | undefined;
-};
-
-export interface VaultReplaceRequest {
-  id: string;
-  timestamp: string;
-  newVault: string;
-  oldVault: string;
-  btcAddress: string;
-  polkaBTC: string;
-  lockedDOT: string;
-  status: string;
-}
+import {
+  ReplaceRequestExt,
+  CollateralUnit
+} from '@interlay/interbtc-api';
+import { H256 } from '@polkadot/types/interfaces';
 
 export interface VaultState {
-  requests: VaultReplaceRequest[];
+  requests: Map<H256, ReplaceRequestExt>;
   collateralization: string | undefined;
-  collateral: PolkadotAmount;
-  lockedBTC: BTCAmount;
-  sla: string;
+  collateral: MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>;
+  lockedBTC: BitcoinAmount;
   apy: string;
 }

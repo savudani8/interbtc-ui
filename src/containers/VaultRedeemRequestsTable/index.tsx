@@ -9,11 +9,14 @@ import {
   useErrorHandler,
   withErrorBoundary
 } from 'react-error-boundary';
-import { BitcoinNetwork } from '@interlay/interbtc-index-client';
+import {
+  BitcoinNetwork,
+  RedeemColumns
+} from '@interlay/interbtc-index-client';
 import {
   Redeem,
   RedeemStatus
-} from '@interlay/interbtc';
+} from '@interlay/interbtc-api';
 
 import EllipsisLoader from 'components/EllipsisLoader';
 import ErrorFallback from 'components/ErrorFallback';
@@ -30,17 +33,16 @@ import StatusCell from 'components/UI/InterlayTable/StatusCell';
 import InterlayLink from 'components/UI/InterlayLink';
 import useQueryParams from 'utils/hooks/use-query-params';
 import useUpdateQueryParameters from 'utils/hooks/use-update-query-parameters';
-import useInterbtcIndex from 'common/hooks/use-interbtc-index';
 import {
   shortAddress,
   formatDateTimePrecise
 } from 'common/utils/utils';
 import { QUERY_PARAMETERS } from 'utils/constants/links';
-import { REQUEST_TABLE_PAGE_LIMIT } from 'utils/constants/general';
+import { TABLE_PAGE_LIMIT } from 'utils/constants/general';
 import { BTC_ADDRESS_API } from 'config/bitcoin';
-import { RedeemColumns } from '@interlay/interbtc-index-client';
 import * as constants from '../../constants';
 import STATUSES from 'utils/constants/statuses';
+import { WrappedTokenAmount } from 'config/relay-chains';
 
 interface Props {
   totalRedeemRequests: number;
@@ -54,7 +56,6 @@ const VaultRedeemRequestsTable = ({
   const queryParams = useQueryParams();
   const selectedPage = Number(queryParams.get(QUERY_PARAMETERS.PAGE)) || 1;
   const updateQueryParameters = useUpdateQueryParameters();
-  const statsApi = useInterbtcIndex();
   const [data, setData] = React.useState<Redeem[]>([]);
   const [status, setStatus] = React.useState(STATUSES.IDLE);
   const handleError = useErrorHandler();
@@ -66,7 +67,6 @@ const VaultRedeemRequestsTable = ({
   );
 
   React.useEffect(() => {
-    if (!statsApi) return;
     if (!selectedPage) return;
     if (!handleError) return;
 
@@ -75,9 +75,9 @@ const VaultRedeemRequestsTable = ({
     try {
       (async () => {
         setStatus(STATUSES.PENDING);
-        const response = await statsApi.getFilteredRedeems({
+        const response = await window.bridge.interBtcIndex.getFilteredRedeems({
           page: selectedPageIndex,
-          perPage: REQUEST_TABLE_PAGE_LIMIT,
+          perPage: TABLE_PAGE_LIMIT,
           network: constants.BITCOIN_NETWORK as BitcoinNetwork, // Not sure why cast is necessary here, but TS complains
           filterRedeemColumns: redeemRequestFilter
         });
@@ -89,7 +89,6 @@ const VaultRedeemRequestsTable = ({
       handleError(error);
     }
   }, [
-    statsApi,
     selectedPage,
     redeemRequestFilter,
     handleError
@@ -110,7 +109,7 @@ const VaultRedeemRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: number}) {
+        Cell: function FormattedCell({ value }: { value: number; }) {
           return (
             <>
               {formatDateTimePrecise(new Date(Number(value)))}
@@ -127,11 +126,11 @@ const VaultRedeemRequestsTable = ({
       },
       {
         Header: t('user'),
-        accessor: 'userDOTAddress',
+        accessor: 'userParachainAddress',
         classNames: [
           'text-center'
         ],
-        Cell: function FormattedCell({ value }: {value: string}) {
+        Cell: function FormattedCell({ value }: { value: string; }) {
           return (
             <>
               {shortAddress(value)}
@@ -144,7 +143,16 @@ const VaultRedeemRequestsTable = ({
         accessor: 'amountBTC',
         classNames: [
           'text-right'
-        ]
+        ],
+        Cell: function FormattedCell({ value }: {
+          value: WrappedTokenAmount;
+        }) {
+          return (
+            <>
+              {value.toHuman()}
+            </>
+          );
+        }
       },
       {
         Header: t('redeem_page.btc_destination_address'),
@@ -152,13 +160,13 @@ const VaultRedeemRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: string}) {
+        Cell: function FormattedCell({ value }: { value: string; }) {
           return (
             <InterlayLink
               className={clsx(
                 'text-interlayDenim',
                 'space-x-1.5',
-                'flex',
+                'inline-flex',
                 'items-center'
               )}
               href={`${BTC_ADDRESS_API}${value}`}
@@ -176,7 +184,7 @@ const VaultRedeemRequestsTable = ({
         classNames: [
           'text-left'
         ],
-        Cell: function FormattedCell({ value }: {value: RedeemStatus}) {
+        Cell: function FormattedCell({ value }: { value: RedeemStatus; }) {
           return (
             <StatusCell
               status={{
@@ -212,14 +220,14 @@ const VaultRedeemRequestsTable = ({
   };
 
   const selectedPageIndex = selectedPage - 1;
-  const pageCount = Math.ceil(totalRedeemRequests / REQUEST_TABLE_PAGE_LIMIT);
+  const pageCount = Math.ceil(totalRedeemRequests / TABLE_PAGE_LIMIT);
 
   return (
     <InterlayTableContainer className='space-y-6'>
       <h2
         className={clsx(
           'text-2xl',
-          'font-bold'
+          'font-medium'
         )}>
         {t('redeem_requests')}
       </h2>

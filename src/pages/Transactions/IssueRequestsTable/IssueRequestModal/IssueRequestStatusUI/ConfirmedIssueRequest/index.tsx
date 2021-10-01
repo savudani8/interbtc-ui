@@ -10,9 +10,9 @@ import {
   FaExternalLinkAlt
 } from 'react-icons/fa';
 import clsx from 'clsx';
-import { Issue } from '@interlay/interbtc';
+import { Issue } from '@interlay/interbtc-api';
 
-import RequestWrapper from 'pages/Home/RequestWrapper';
+import RequestWrapper from 'pages/Bridge/RequestWrapper';
 import ErrorModal from 'components/ErrorModal';
 import InterlayLink from 'components/UI/InterlayLink';
 import InterlayDenimOutlinedButton from 'components/buttons/InterlayDenimOutlinedButton';
@@ -20,7 +20,7 @@ import useQueryParams from 'utils/hooks/use-query-params';
 import { shortAddress } from 'common/utils/utils';
 import { BTC_TRANSACTION_API } from 'config/bitcoin';
 import { QUERY_PARAMETERS } from 'utils/constants/links';
-import { REQUEST_TABLE_PAGE_LIMIT } from 'utils/constants/general';
+import { TABLE_PAGE_LIMIT } from 'utils/constants/general';
 import { USER_ISSUE_REQUESTS_FETCHER } from 'services/user-issue-requests-fetcher';
 import { StoreType } from 'common/types/util.types';
 
@@ -34,7 +34,7 @@ const ConfirmedIssueRequest = ({
   const { t } = useTranslation();
   const {
     address,
-    polkaBtcLoaded
+    bridgeLoaded
   } = useSelector((state: StoreType) => state.general);
 
   const queryParams = useQueryParams();
@@ -44,7 +44,7 @@ const ConfirmedIssueRequest = ({
   const queryClient = useQueryClient();
   const executeMutation = useMutation<void, Error, Issue>(
     (variables: Issue) => {
-      return window.polkaBTC.issue.execute('0x' + variables.id, variables.btcTxId);
+      return window.bridge.interBtcApi.issue.execute('0x' + variables.id, variables.btcTxId);
     },
     {
       onSuccess: (_, variables) => {
@@ -52,7 +52,7 @@ const ConfirmedIssueRequest = ({
           USER_ISSUE_REQUESTS_FETCHER,
           address,
           selectedPageIndex,
-          REQUEST_TABLE_PAGE_LIMIT
+          TABLE_PAGE_LIMIT
         ]);
         toast.success(t('issue_page.successfully_executed', { id: variables.id }));
       }
@@ -60,7 +60,7 @@ const ConfirmedIssueRequest = ({
   );
 
   const handleExecute = (request: Issue) => () => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
 
     executeMutation.mutate(request);
   };

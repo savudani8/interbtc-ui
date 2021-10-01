@@ -1,20 +1,27 @@
-import { SyntheticEvent, useState } from 'react';
+
+import * as React from 'react';
 import { Modal } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { useDispatch, useSelector } from 'react-redux';
-import { roundTwoDecimals } from '@interlay/interbtc';
+import {
+  useDispatch,
+  useSelector
+} from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import Big from 'big.js';
 import {
-  Polkadot,
-  PolkadotAmount
-} from '@interlay/monetary-js';
+  roundTwoDecimals,
+  newMonetaryAmount
+} from '@interlay/interbtc-api';
 
-import { updateCollateralAction, updateCollateralizationAction } from '../../../common/actions/vault.actions';
-import { StoreType } from '../../../common/types/util.types';
-import { ACCOUNT_ID_TYPE_NAME } from 'config/general';
 import InterlayDefaultContainedButton from 'components/buttons/InterlayDefaultContainedButton';
+import { ACCOUNT_ID_TYPE_NAME } from 'config/general';
+import { COLLATERAL_TOKEN } from 'config/relay-chains';
+import {
+  updateCollateralAction,
+  updateCollateralizationAction
+} from 'common/actions/vault.actions';
+import { StoreType } from 'common/types/util.types';
 
 // Commenting because moving this to last line causes 3 "used before it was defined" warnings
 // eslint-disable-next-line import/exports-last
@@ -28,47 +35,54 @@ type UpdateCollateralForm = {
   collateral: string;
 };
 
-type UpdateCollateralProps = {
+interface Props {
   onClose: () => void;
   status: CollateralUpdateStatus;
-};
+}
 
-export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX.Element {
-  const { polkaBtcLoaded, vaultClientLoaded, address } = useSelector((state: StoreType) => state.general);
-  const { register, handleSubmit, errors } = useForm<UpdateCollateralForm>();
-  // denoted in DOT
+const UpdateCollateralModal = (props: Props): JSX.Element => {
+  const {
+    bridgeLoaded,
+    vaultClientLoaded,
+    address
+  } = useSelector((state: StoreType) => state.general);
+  const {
+    register,
+    handleSubmit,
+    errors
+  } = useForm<UpdateCollateralForm>();
+  // Denoted in DOT
   const currentCollateral = useSelector((state: StoreType) => state.vault.collateral);
-  // denoted in DOT
-  const [newCollateral, setNewCollateral] = useState(currentCollateral);
-  // denoted in DOT
-  const [newCollateralization, setNewCollateralization] = useState('∞');
-
-  const [currentButtonText, setCurrentButtonText] = useState('');
-
-  const [isUpdatePending, setUpdatePending] = useState(false);
-  const [isCollateralUpdateAllowed, setCollateralUpdateAllowed] = useState(false);
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
+  // Denoted in DOT
+  const [newCollateral, setNewCollateral] = React.useState(currentCollateral);
+  // Denoted in DOT
+  const [newCollateralization, setNewCollateralization] = React.useState('∞');
+  const [currentButtonText, setCurrentButtonText] = React.useState('');
+  const [isUpdatePending, setUpdatePending] = React.useState(false);
+  const [isCollateralUpdateAllowed, setCollateralUpdateAllowed] = React.useState(false);
+
   const onSubmit = handleSubmit(async () => {
-    if (!polkaBtcLoaded) return;
+    if (!bridgeLoaded) return;
     if (!vaultClientLoaded) return;
 
     setUpdatePending(true);
     try {
       if (currentCollateral.gt(newCollateral)) {
         const withdrawAmount = currentCollateral.sub(newCollateral);
-        await window.polkaBTC.vaults.withdrawCollateral(withdrawAmount);
+        await window.bridge.interBtcApi.vaults.withdrawCollateral(withdrawAmount);
       } else if (currentCollateral.lt(newCollateral)) {
         const depositAmount = newCollateral.sub(currentCollateral);
-        await window.polkaBTC.vaults.depositCollateral(depositAmount);
+        await window.bridge.interBtcApi.vaults.depositCollateral(depositAmount);
       } else {
         closeModal();
         return;
       }
 
-      const vaultId = window.polkaBTC.api.createType(ACCOUNT_ID_TYPE_NAME, address);
-      const balanceLockedDOT = await window.polkaBTC.tokens.balanceLocked(Polkadot, vaultId);
+      const vaultId = window.bridge.polkadotApi.createType(ACCOUNT_ID_TYPE_NAME, address);
+      const balanceLockedDOT = await window.bridge.interBtcApi.tokens.balanceLocked(COLLATERAL_TOKEN, vaultId);
       dispatch(updateCollateralAction(balanceLockedDOT));
       let collateralization;
       try {
@@ -91,19 +105,19 @@ export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX
     setNewCollateralization('');
   };
 
-  const onChange = async (obj: SyntheticEvent) => {
+  const onChange = async (obj: React.SyntheticEvent) => {
     try {
       const value = (obj.target as HTMLInputElement).value;
-      if (value === '' || !polkaBtcLoaded || Number(value) <= 0 || isNaN(Number(value))) {
+      if (value === '' || !bridgeLoaded || Number(value) <= 0 || isNaN(Number(value))) {
         setCollateralUpdateAllowed(false);
         return;
       }
-      const parsedValue = PolkadotAmount.from.DOT(value);
+      const parsedValue = newMonetaryAmount(value, COLLATERAL_TOKEN);
       if (parsedValue.toBig(parsedValue.currency.rawBase).lte(1)) {
         throw new Error('Please enter an amount greater than 1 Planck');
       }
 
-      // decide if we withdraw or add collateral
+      // Decide if we withdraw or add collateral
       if (!currentCollateral) {
         throw new Error('Couldn\'t fetch current vault collateral');
       }
@@ -116,23 +130,25 @@ export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX
       }
       setNewCollateral(newCollateral);
 
-      const vaultId = window.polkaBTC.api.createType(ACCOUNT_ID_TYPE_NAME, address);
-      const requiredCollateral = await window.polkaBTC.vaults.getRequiredCollateralForVault(vaultId, Polkadot);
+      const vaultId = window.bridge.polkadotApi.createType(ACCOUNT_ID_TYPE_NAME, address);
+      const requiredCollateral =
+        await window.bridge.interBtcApi.vaults.getRequiredCollateralForVault(vaultId, COLLATERAL_TOKEN);
 
-      // collateral update only allowed if above required collateral
+      // Collateral update only allowed if above required collateral
       const allowed = newCollateral.gte(requiredCollateral);
       setCollateralUpdateAllowed(allowed);
 
-      // get the updated collateralization
-      const newCollateralization = await window.polkaBTC.vaults.getVaultCollateralization(vaultId, newCollateral);
+      // Get the updated collateralization
+      const newCollateralization =
+        await window.bridge.interBtcApi.vaults.getVaultCollateralization(vaultId, newCollateral);
       if (newCollateralization === undefined) {
         setNewCollateralization('∞');
       } else {
         // The vault API returns collateralization as a regular number rather than a percentage
         setNewCollateralization(newCollateralization.mul(100).toString());
       }
-    } catch (err) {
-      console.log(err);
+    } catch (error) {
+      console.log('[UpdateCollateralModal onChange] error.message => ', error.message);
     }
   };
 
@@ -147,7 +163,7 @@ export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX
     }
   };
 
-  function getStatusText(status: CollateralUpdateStatus): string {
+  const getStatusText = (status: CollateralUpdateStatus): string => {
     switch (status) {
     case CollateralUpdateStatus.Increase:
       if (currentButtonText !== t('vault.deposit_collateral')) {
@@ -162,7 +178,7 @@ export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX
     default:
       return currentButtonText || '';
     }
-  }
+  };
 
   return (
     <Modal
@@ -238,4 +254,6 @@ export default function UpdateCollateralModal(props: UpdateCollateralProps): JSX
       </form>
     </Modal>
   );
-}
+};
+
+export default UpdateCollateralModal;
