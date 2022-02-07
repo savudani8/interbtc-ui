@@ -105,7 +105,7 @@ const ReceivedIssueRequest = ({
 
   const requestConfirmations =
     request.backingPayment.confirmedAtParachainActiveBlock ?
-      parachainHeight - request.backingPayment.confirmedAtParachainActiveBlock :
+      parachainHeight - Number(request.backingPayment.confirmedAtParachainActiveBlock) :
       0;
 
   return (

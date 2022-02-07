@@ -46,6 +46,9 @@ const ConfirmedIssueRequest = ({
   // TODO: should type properly (`Relay`)
   const executeMutation = useMutation<void, Error, any>(
     (variables: any) => {
+      if (!variables.backingPayment.btcTxId) {
+        throw new Error('Bitcoin transaction ID not identified yet.');
+      }
       return window.bridge.interBtcApi.issue.execute('0x' + variables.id, variables.backingPayment.btcTxId);
     },
     {
